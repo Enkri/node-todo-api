@@ -18,6 +18,8 @@ describe('POST /todos', () => {
     var text = 'Test data';
     request(app)
       .post('/todos')
+      /* send in data as request so post can get text from the post
+      request and create todo item and add it to the database */
       .send({text: text})
       .expect(200)
       .expect((res) => { // customed expect assertion
