@@ -41,7 +41,7 @@ app.get('/todos/:id', (req, res) => {
   if (ObjectId.isValid(id)) {
     Todo.findById(id).then((todo) => {
       if (!todo) {
-        res.status(404).send().end();
+        return res.status(404).send();
       }
       res.send({todo: todo});
     }).catch((e) => {
@@ -50,7 +50,28 @@ app.get('/todos/:id', (req, res) => {
   } else {
     return res.status(404).send();
   }
-})
+});
+
+app.delete('/todos/:id', (req, res) => {
+  // get the id
+  var id = req.params.id;
+  console.log(typeof id);
+  // validte the id -> not valid? return 404
+  if (!ObjectId.isValid(id)) {
+    return res.status(404).send();
+  }
+  // remove todo by id
+  Todo.findByIdAndRemove(id).then((doc) => {
+    if (!doc) {
+      return res.status(404).send();
+    }
+    res.status(200).send(doc);
+  }).catch((e) => {
+    res.status(400).send();
+  });
+    // success -> if no doc send 404 otherwise send doc back with 200
+    // error -> 400 with empty body
+});
 
 app.listen(port, () => {
   console.log(`Started on port ${port}`);
