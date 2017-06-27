@@ -15,11 +15,12 @@ const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
-app.post('/todos', (req, res) => { // routing
+app.post('/todos', authenticate, (req, res) => { // routing
 
   // create todo item using the information that comes from the user
   var todo = new Todo({
-    text: req.body.text
+    text: req.body.text,
+    _creator: req.user._id
   });
 
   todo.save().then((doc) => {
@@ -29,8 +30,10 @@ app.post('/todos', (req, res) => { // routing
   });
 });
 
-app.get('/todos', (req, res) => {
-  Todo.find().then((todos) => {
+app.get('/todos', authenticate, (req, res) => {
+  Todo.find({
+    _creator: req.user._id
+  }).then((todos) => {
     res.send({
       todos
     });
@@ -39,14 +42,17 @@ app.get('/todos', (req, res) => {
   })
 });
 
-app.get('/todos/:id', (req, res) => {
+app.get('/todos/:id', authenticate, (req, res) => {
   var id = req.params.id;
   if (ObjectId.isValid(id)) {
-    Todo.findById(id).then((todo) => {
+    Todo.findOne({
+      _id: id,
+      _creator: req.user._id
+    }).then((todo) => {
       if (!todo) {
         res.status(404).send().end();
       }
-      res.send({todo: todo});
+      res.send({todo});
     }).catch((e) => {
       res.status(400).send();
     })
@@ -55,15 +61,17 @@ app.get('/todos/:id', (req, res) => {
   }
 });
 
-app.delete('/todos/:id', (req, res) => {
 
+app.delete('/todos/:id', authenticate, (req, res) => {
   var id = req.params.id;
-
   if (!ObjectId.isValid(id)) {
     return res.status(404).send();
   }
 
-  Todo.findByIdAndRemove(id).then((doc) => {
+  Todo.findOneAndRemove({
+    _id: id,
+    _creator: req.user._id
+  }).then((doc) => {
     if (!doc) {
       return res.status(404).send();
     }
@@ -74,29 +82,39 @@ app.delete('/todos/:id', (req, res) => {
 
 });
 
-app.patch('/todos/:id', (req, res) =>{
+app.patch('/todos/:id', authenticate, (req, res) =>{
   var id = req.params.id;
   var body = _.pick(req.body, ['text', 'completed']);
 
-  if (!ObjectId.isValid(id)) {
-    return res.status(404).send();
-  }
-
-  if (_.isBoolean(body.completed) && body.completed) {
-    body.completedAt = new Date().getTime();
-  } else {
-    body.completed = false;
-    body.completedAt = null;
-  }
-
-  Todo.findByIdAndUpdate(id, {$set: body}, {new: true}).then((todo) => {
-    if (!todo) {
+  Todo.findOne({
+    _id: id,
+    _creator: req.user._id
+  }).then((doc) => {
+    if (!doc) {
       return res.status(404).send();
     }
-    res.send({todo});
+    if (!ObjectId.isValid(id)) {
+
+      return res.status(404).send();
+    }
+
+    if (_.isBoolean(body.completed) && body.completed) {
+      body.completedAt = new Date().getTime();
+    } else {
+      body.completed = false;
+      body.completedAt = null;
+    }
+
+    Todo.findByIdAndUpdate(id, {$set: body}, {new: true}).then((todo) => {
+      if (!todo) {
+        return res.status(404).send();
+      }
+      res.send({todo});
+    })
+
   }).catch((e) => {
     res.status(400).send();
-  })
+  });
 
 });
 
@@ -107,7 +125,7 @@ app.post('/users', (req, res) => {
   user.save().then(() => {
     return user.generateAuthToken();
   }).then((token) => {
-    res.header('x-auth', token).send(user); // x-: custom header
+    res.set('x-auth', token).send(user); // x-: custom header
   }).catch((e) => {
     res.status(400).send(e);
   });
@@ -121,7 +139,7 @@ app.post('/users/login', (req, res) => {
   var body = _.pick(req.body, ['email', 'password']);
   User.findByCredentials(body.email, body.password).then((user) => {
     return user.generateAuthToken().then((token) => {
-      res.header('x-auth', token).send(user);
+      res.set('x-auth', token).send(user);
     });
   }).catch((e) => {
     res.status(400).send(e);
