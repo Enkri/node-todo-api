@@ -43,7 +43,7 @@ UserSchema.methods.toJSON = function() { // instance method
 UserSchema.methods.generateAuthToken = function() { // arrow function doesn't bind this keyword
   var user = this;
   var access = 'auth';
-  var token = jwt.sign({_id: user._id.toHexString(), access}, 'chen123').toString();
+  var token = jwt.sign({_id: user._id.toHexString(), access}, process.env.JWT_SECRET).toString();
 
   user.tokens.push({
     access,
@@ -71,7 +71,7 @@ UserSchema.statics.findByToken = function(token) { // model method
   var decoded;
 
   try {
-    decoded = jwt.verify(token, 'chen123');
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch(e) {
     return Promise.reject();
   }
